@@ -1,0 +1,14 @@
+{
+  "name": "alcance",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "jotapol_ alcance: requerimientos, QA y pentest en local",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node server.mjs",
+    "demo": "node demo.mjs",
+    "cli": "node cli.mjs",
+    "test": "node --test test.mjs"
+  }
+}

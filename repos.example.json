@@ -1,0 +1,11 @@
+{
+  "carpetas": [
+    "C:/proyectos"
+  ],
+  "ambientes": {
+    "develop": "dev",
+    "qa": "qa",
+    "uat": "uat",
+    "main": "prod"
+  }
+}
