@@ -134,6 +134,7 @@ label.f textarea { min-height: 72px; resize: vertical; }
 .toggles { display: flex; gap: 6px; flex-wrap: wrap; }
 .toggles button { height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); padding: 0 12px; cursor: pointer; font-family: var(--mono); font-weight: 700; }
 .toggles button[aria-pressed="true"] { background: var(--indigo); border-color: var(--indigo); color: #fff; }
+.toggles button:disabled { cursor: default; }
 .prueba { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; background: var(--bg); border-radius: 10px; padding: 6px 6px 6px 12px; }
 .prueba .acc { display: flex; gap: 4px; }
 .prueba .acc button { height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; padding: 0 10px; font-family: var(--mono); font-size: .75rem; }
@@ -469,7 +470,8 @@ function renderFicha() {
     <div class="bloque">
       <h3>Dónde está</h3>
       ${b.ambientesGit
-        ? `<div class="aviso">Calculado de git: ${meta.AMBIENTES.filter((a) => b.ambientesGit[a]).map((a) => a.toUpperCase()).join(", ") || "todavía en ningún ambiente"} (todos sus commits ya están en esa rama).</div>`
+        ? `<div class="toggles">${meta.AMBIENTES.map((a) => `<button disabled aria-pressed="${!!b.ambientesGit[a]}" title="Calculado de git">${a.toUpperCase()}</button>`).join("")}</div>
+           <div class="aviso">Calculado de git: un ambiente se marca cuando todos los commits del ticket ya llegaron a esa rama. Para marcarlo a mano, quitá los commits.</div>`
         : `<div class="toggles">${meta.AMBIENTES.map((a) => `<button data-amb="${a}" aria-pressed="${!!b.ambientes[a]}">${a.toUpperCase()}</button>`).join("")}</div>
            <div class="aviso">Marcado a mano. Asociá commits abajo y se calcula solo.</div>`}
     </div>
