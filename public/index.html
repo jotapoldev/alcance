@@ -155,6 +155,13 @@ label.f textarea { min-height: 72px; resize: vertical; }
 .ptabs button { border: 0; background: transparent; padding: 8px 12px; cursor: pointer; font-weight: 700; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; display: flex; gap: 6px; align-items: center; }
 .ptabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--indigo); }
 .ptabs .c { font-family: var(--mono); font-size: .68rem; background: var(--surface-2); border-radius: 999px; padding: 0 6px; color: var(--muted); }
+.md h3, .md h4, .md h5 { margin: 1em 0 .4em; }
+.md p, .md ul { margin: .4em 0; line-height: 1.5; }
+.md ul { padding-left: 1.2em; }
+.md table { border-collapse: collapse; width: 100%; font-size: .85rem; margin: .5em 0; }
+.md th, .md td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; vertical-align: top; }
+.md th { background: var(--surface-2); }
+.md pre { background: var(--surface-2); border-radius: 8px; padding: 8px 10px; overflow-x: auto; font-size: .8rem; }
 .ptabs .c.duda { background: var(--postit); color: var(--tinta); }
 .pbody { display: grid; gap: 12px; }
 .pbody > .bloque:first-child { border-top: 0; padding-top: 0; }
@@ -393,6 +400,7 @@ function renderFicha() {
     ["detalle", "Detalle"],
     ["alcance", "Alcance", b.dudas.trim() ? "duda" : "", "duda"],
     ["qa", "QA", b.pruebas.length ? `${ok}/${b.pruebas.length}` : ""],
+    ...((b.analisis || "").trim() ? [["analisis", "Análisis"]] : []),
     ...(nuevo ? [] : [["commits", "Commits", item.commits.length || ""], ["historial", "Historial", (item.avances.length + item.historial.length) || ""]]),
   ];
   f.innerHTML = `
@@ -409,6 +417,7 @@ function renderFicha() {
     </div>
 
 `;
+      case "analisis": return `<div class="bloque md">${markdown(b.analisis || "")}</div>`;
       case "qa": return `
     <div class="bloque">
       <h3>Pruebas QA <span class="chip">${b.pruebas.filter((p) => p.resultado === "ok").length}/${b.pruebas.length}</span></h3>
@@ -490,6 +499,40 @@ function renderFicha() {
     </div>
     <div class="error" id="err" role="alert"></div>
     ${sucio ? `<div class="aviso">Cambios sin guardar.</div>` : ""}`;
+}
+
+// Markdown mínimo para la pestaña Análisis (lo escribe Claude por CLI): títulos, listas, tablas,
+// **negrita**, `código` y bloques ```. Todo pasa por esc() antes de formatear.
+function markdown(src) {
+  const inline = (t) => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  const out = [];
+  const lineas = src.replace(/\r/g, "").split("\n");
+  for (let i = 0; i < lineas.length; i++) {
+    const l = lineas[i];
+    if (l.startsWith("```")) {
+      const code = [];
+      while (++i < lineas.length && !lineas[i].startsWith("```")) code.push(lineas[i]);
+      out.push(`<pre><code>${esc(code.join("\n"))}</code></pre>`);
+    } else if (/^#{1,4} /.test(l)) {
+      const n = Math.min(l.indexOf(" ") + 2, 5);
+      out.push(`<h${n}>${inline(l.slice(l.indexOf(" ") + 1))}</h${n}>`);
+    } else if (l.trim().startsWith("|")) {
+      const filas = [];
+      for (; i < lineas.length && lineas[i].trim().startsWith("|"); i++) filas.push(lineas[i]);
+      i--;
+      const celdas = (f) => f.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const cuerpo = filas.filter((f) => !/^\s*\|[\s:|-]+\|\s*$/.test(f));
+      out.push(`<table>${cuerpo.map((f, k) => `<tr>${celdas(f).map((c) => k ? `<td>${inline(c)}</td>` : `<th>${inline(c)}</th>`).join("")}</tr>`).join("")}</table>`);
+    } else if (/^\s*[-*] /.test(l)) {
+      const items = [];
+      for (; i < lineas.length && /^\s*[-*] /.test(lineas[i]); i++) items.push(`<li>${inline(lineas[i].replace(/^\s*[-*] /, ""))}</li>`);
+      i--;
+      out.push(`<ul>${items.join("")}</ul>`);
+    } else if (l.trim()) {
+      out.push(`<p>${inline(l)}</p>`);
+    }
+  }
+  return out.join("");
 }
 
 // ---------- Interacción ----------

@@ -3,12 +3,14 @@
 //   node cli.mjs add "título" [--tipo requerimiento] [--sistema web] [--estado en-curso] [--prioridad alta]
 //                    [--severidad alta] [--incluye "..."] [--excluye "..."] [--dudas "..."] [--ambientes dev,qa]
 //   node cli.mjs set <id> --estado listo [--ambientes dev,qa,uat] [...mismos campos]
+//   node cli.mjs set <id> --analisis-file analisis.md   (análisis de impacto en markdown, pestaña Análisis)
 //   node cli.mjs nota <id> "texto del avance"        (queda firmado como claude)
 //   node cli.mjs prueba <id> "caso" [ok|falla]
 //   node cli.mjs ls [--estado en-curso] [--tipo pentest]
 //   node cli.mjs commit <id> <repo> <sha> [<sha>...]  (asocia commits; el ambiente sale de las ramas que los contienen)
 import { listar, crear, actualizar, avance, obtener, asociar, guardarCommit, AMBIENTES } from "./db.mjs";
 import { commit } from "./git.mjs";
+import { readFileSync } from "node:fs";
 
 const [cmd, ...rest] = process.argv.slice(2);
 const flags = {};
@@ -16,6 +18,10 @@ const pos = [];
 for (let i = 0; i < rest.length; i++) {
   if (rest[i].startsWith("--")) flags[rest[i].slice(2)] = rest[++i] ?? "";
   else pos.push(rest[i]);
+}
+if ("analisis-file" in flags) {
+  flags.analisis = readFileSync(flags["analisis-file"], "utf8");
+  delete flags["analisis-file"];
 }
 if ("ambientes" in flags) {
   const on = flags.ambientes.split(",").map((s) => s.trim().toLowerCase());

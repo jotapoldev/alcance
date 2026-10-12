@@ -59,6 +59,8 @@ if (!columnas("items").has("cerrado")) {
     WHERE estado = 'listo'`);
 }
 const cc = columnas("commits");
+// Análisis de impacto en markdown: solo lo llevan los tickets grandes, se muestra en su propia pestaña.
+if (!columnas("items").has("analisis")) db.exec("ALTER TABLE items ADD COLUMN analisis TEXT NOT NULL DEFAULT ''");
 for (const c of ["asunto", "cuando", "autor", "ambientes", "error", "revisado"]) {
   if (!cc.has(c)) db.exec(`ALTER TABLE commits ADD COLUMN ${c} TEXT`);
 }
@@ -70,7 +72,7 @@ export const PRIORIDADES = ["alta", "media", "baja"];
 export const SEVERIDADES = ["", "critica", "alta", "media", "baja"];
 export const AMBIENTES = ["dev", "qa", "uat", "prod"];
 
-const CAMPOS = ["tipo", "titulo", "sistema", "estado", "prioridad", "severidad", "incluye", "excluye", "dudas", "ambientes", "pruebas"];
+const CAMPOS = ["tipo", "titulo", "sistema", "estado", "prioridad", "severidad", "incluye", "excluye", "dudas", "analisis", "ambientes", "pruebas"];
 
 // Valida en la frontera: lo que entra por la UI o el CLI nunca llega crudo a la base.
 function limpiar(input) {
@@ -107,7 +109,7 @@ const registrar = (id, cambio) =>
   db.prepare("INSERT INTO historial (item_id, cambio) VALUES (?, ?)").run(Number(id), cambio);
 
 // Solo se registran los campos con valor corto; los textos largos (alcance, dudas) se anotan como "editado".
-const LARGOS = new Set(["incluye", "excluye", "dudas", "titulo"]);
+const LARGOS = new Set(["incluye", "excluye", "dudas", "analisis", "titulo"]);
 function describirCambios(antes, despues) {
   return Object.keys(despues).flatMap((k) => {
     const a = k === "ambientes" || k === "pruebas" ? JSON.stringify(antes[k]) : antes[k];
