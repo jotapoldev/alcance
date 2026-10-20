@@ -5,6 +5,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(fileURLToPath(import.meta.url));
+// .env.local (ignorado por git) puede mover la base fuera del código: ALCANCE_DB=/ruta/alcance.db
+try { process.loadEnvFile(join(root, ".env.local")); } catch {}
 const file = process.env.ALCANCE_DB ?? join(root, "data", "alcance.db");
 mkdirSync(dirname(file), { recursive: true });
 
