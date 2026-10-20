@@ -168,13 +168,44 @@ export function abiertos() {
 // Histórico por ventanas de fecha de cierre (más reciente primero). `q` busca en todo el histórico.
 export function historico({ desde, q } = {}) {
   const like = q ? `%${String(q).trim()}%` : null;
-  const filtroQ = like ? " AND (titulo LIKE ? OR incluye LIKE ? OR excluye LIKE ? OR dudas LIKE ?)" : "";
-  const argsQ = like ? [like, like, like, like] : [];
+  // "#41" o "41, 34 25": número de ticket exacto en vez de texto.
+  const ids = like && /^#?\d+([\s,]+#?\d+)*$/.test(String(q).trim()) ? String(q).match(/\d+/g).map(Number) : null;
+  const filtroQ = ids ? ` AND id IN (${ids.map(() => "?").join(",")})`
+    : like ? " AND (titulo LIKE ? OR incluye LIKE ? OR excluye LIKE ? OR dudas LIKE ?)" : "";
+  const argsQ = ids ?? (like ? [like, like, like, like] : []);
   const rows = like
     ? db.prepare(`SELECT * FROM items WHERE estado = 'listo'${filtroQ} ORDER BY cerrado DESC LIMIT 200`).all(...argsQ)
     : db.prepare("SELECT * FROM items WHERE estado = 'listo' AND cerrado >= ? ORDER BY cerrado DESC").all(desde);
   const hayMas = !like && !!db.prepare("SELECT 1 FROM items WHERE estado = 'listo' AND cerrado < ? LIMIT 1").get(desde);
   return { items: conResumen(rows), hayMas };
+}
+
+// Descarga a Excel (ver xlsx.mjs): por estado ("terminados", "abiertos" o uno del catálogo; vacío = todos),
+// solo ciertos números de ticket y/o los últimos N. Más recientes primero; incluye commits y avances.
+export function exportar({ estado = "", ids = "", n = "" } = {}) {
+  const where = [], args = [];
+  if (estado === "terminados") where.push("estado = 'listo'");
+  else if (estado === "abiertos") where.push("estado != 'listo'");
+  else if (ESTADOS.includes(estado)) { where.push("estado = ?"); args.push(estado); }
+  const nums = String(ids).match(/\d+/g)?.map(Number) ?? [];
+  if (nums.length) { where.push(`id IN (${nums.map(() => "?").join(",")})`); args.push(...nums); }
+  const lim = Math.max(0, Math.floor(Number(n) || 0));
+  const rows = db.prepare(`SELECT id FROM items${where.length ? ` WHERE ${where.join(" AND ")}` : ""}
+    ORDER BY COALESCE(cerrado, actualizado) DESC, id DESC${lim ? ` LIMIT ${lim}` : ""}`).all(...args);
+  const columnas = [["Ticket", 9], ["Tipo", 14], ["Título", 50], ["Sistema", 22], ["Estado", 12], ["Prioridad", 11], ["Severidad", 11],
+    ["Creado", 18], ["Cerrado", 18], ["Ambientes", 16], ["Pruebas QA", 13], ["Incluye", 60], ["Excluye", 40], ["Dudas", 50], ["Commits", 60], ["Avances", 80]]
+    .map(([titulo, ancho]) => ({ titulo, ancho }));
+  const filas = rows.map(({ id }) => {
+    const i = detalle(id);
+    const amb = i.ambientesGit ?? i.ambientes;
+    return [i.id, i.tipo, i.titulo, i.sistema, i.estado, i.prioridad, i.severidad, i.creado, i.cerrado,
+      AMBIENTES.filter((a) => amb[a]).join(", "),
+      i.pruebas.length ? `${i.pruebas.filter((p) => p.resultado === "ok").length}/${i.pruebas.length} pasan` : "",
+      i.incluye, i.excluye, i.dudas,
+      i.commits.map((c) => `${c.repo} ${c.sha.slice(0, 8)} ${c.asunto}`.trim()).join("\n"),
+      [...i.avances].reverse().map((a) => `${a.fecha} ${a.autor}: ${a.texto}`).join("\n")];
+  });
+  return { total: rows.length, columnas, filas };
 }
 
 export function detalle(id) {

@@ -4,10 +4,12 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  abiertos, historico, detalle, version, crear, actualizar, borrar, avance, asociar, desasociar,
+  abiertos, historico, exportar, detalle, version, crear, actualizar, borrar, avance, asociar, desasociar,
   commitsPendientes, guardarCommit, TIPOS, ESTADOS, PRIORIDADES, SEVERIDADES, AMBIENTES,
 } from "./db.mjs";
 import { estadoRepos, commit, recientes, repos } from "./git.mjs";
+import { juego } from "./juego.mjs";
+import { xlsx } from "./xlsx.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 3220);
@@ -60,6 +62,15 @@ createServer(async (req, res) => {
     }
     if (p === "/api/meta") return json(res, 200, { TIPOS, ESTADOS, PRIORIDADES, SEVERIDADES, AMBIENTES, REPOS: repos().map((r) => r.nombre) });
     if (p === "/api/version") return json(res, 200, version());
+    if (p === "/api/juego") return json(res, 200, juego());
+    if (p === "/api/exportar") {
+      const { columnas, filas } = exportar(Object.fromEntries(url.searchParams));
+      res.writeHead(200, {
+        "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "content-disposition": `attachment; filename="alcance-${new Date().toLocaleDateString("sv-SE")}.xlsx"`,
+      });
+      return res.end(xlsx("Tickets", columnas, filas));
+    }
     if (p === "/api/repos") return json(res, 200, await reposEstado(fresco));
     const rc = p.match(/^\/api\/repos\/([\w.-]+)\/commits$/);
     if (rc) return json(res, 200, await recientes(rc[1]));

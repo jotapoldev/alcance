@@ -178,6 +178,32 @@ label.f textarea { min-height: 72px; resize: vertical; }
 .acciones { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; }
 .aviso { font-family: var(--mono); font-size: .75rem; color: var(--muted); }
 .error { color: var(--coral); font-family: var(--mono); font-size: .8rem; }
+header .btn-ghost { border-color: rgb(255 255 255 / .25); }
+
+/* Diálogo de descarga. */
+dialog.dlg { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--fg); padding: 20px; width: min(420px, calc(100vw - 32px)); }
+dialog.dlg::backdrop { background: rgb(14 11 42 / .5); }
+dialog.dlg form { display: grid; gap: 14px; }
+dialog.dlg h2 { margin: 0; font-size: 1.2rem; letter-spacing: -0.02em; }
+dialog.dlg .aviso { margin: 0; }
+
+/* Modo ranked: RP, rango y avance de la semana. */
+.juego { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 12px; padding: 20px 24px 0; }
+@media (max-width: 900px) { .juego { grid-template-columns: 1fr; } }
+.jcard { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 8px; align-content: start; }
+.jcard.rank { background: var(--tinta); color: #F5F3FF; border-color: transparent; position: relative; overflow: hidden; }
+.jcard.rank::after { content: ""; position: absolute; right: -22px; bottom: -22px; width: 80px; height: 80px; border-radius: 50%; background: var(--indigo); opacity: .7; }
+.jcard .t { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+.jcard.rank .t { color: var(--niebla); opacity: .8; }
+.rp { font-weight: 800; font-size: 2rem; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.rp small { font-size: .9rem; font-weight: 700; color: var(--menta); margin-left: 4px; }
+.barra { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; position: relative; z-index: 1; }
+.jcard.rank .barra { background: rgb(255 255 255 / .14); }
+.barra > i { display: block; height: 100%; border-radius: inherit; background: var(--indigo); transition: width .6s ease; }
+.jcard.rank .barra > i, .barra.hecho > i { background: var(--menta); }
+@media (prefers-reduced-motion: reduce) { .barra > i { transition: none; } }
+.pct { font-weight: 800; font-size: 1.6rem; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.jfila { display: flex; justify-content: space-between; align-items: center; gap: 8px; position: relative; z-index: 1; }
 </style>
 </head>
 <body>
@@ -191,8 +217,39 @@ label.f textarea { min-height: 72px; resize: vertical; }
   <span class="hora" id="hora"></span>
   <button class="btn icono" id="refrescar" aria-label="Actualizar ahora" title="Actualizar ahora (relee git)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg></button>
   <button class="btn icono" id="tema" aria-label="Cambiar a modo oscuro"></button>
+  <button class="btn btn-ghost" id="descargar">Descargar</button>
   <button class="btn btn-primary" id="nuevo">Nuevo</button>
 </header>
+
+<dialog class="dlg" id="dlg-descargar" aria-labelledby="dlg-descargar-t">
+  <form method="get" action="/api/exportar">
+    <h2 id="dlg-descargar-t">Descargar tickets</h2>
+    <label class="f">Estado
+      <select name="estado">
+        <option value="">Todos, sin importar el estado</option>
+        <option value="terminados">Terminados (histórico)</option>
+        <option value="abiertos">Sin terminar</option>
+        <option value="pendiente">Pendientes</option>
+        <option value="en-curso">En curso</option>
+        <option value="en-pruebas">En pruebas</option>
+        <option value="bloqueado">Bloqueados</option>
+      </select>
+    </label>
+    <label class="f">Cuántos
+      <input name="n" type="number" min="1" step="1" inputmode="numeric" placeholder="Todos (vacío) o los últimos N">
+    </label>
+    <label class="f">Solo estos tickets (opcional)
+      <input name="ids" placeholder="#41, 34, 25">
+    </label>
+    <p class="aviso">Archivo de Excel (.xlsx) con commits y avances. Primero los más recientes.</p>
+    <div class="acciones">
+      <button class="btn btn-primary">Descargar</button>
+      <button class="btn btn-ghost" formmethod="dialog" formnovalidate>Cerrar</button>
+    </div>
+  </form>
+</dialog>
+
+<section class="juego" id="juego" aria-label="Modo ranked"></section>
 
 <section class="resumen" id="resumen" aria-busy="true"><div class="skel kpi-s"></div><div class="skel kpi-s"></div><div class="skel kpi-s"></div><div class="skel kpi-s"></div><div class="skel kpi-s"></div></section>
 <section class="proyectos" id="proyectos" aria-label="Proyectos locales"><div class="skel repo-s"></div><div class="skel repo-s"></div><div class="skel repo-s"></div><div class="skel repo-s"></div><div class="skel repo-s"></div></section>
@@ -203,7 +260,7 @@ label.f textarea { min-height: 72px; resize: vertical; }
   <button class="limpiar" id="limpiar" hidden>Limpiar filtros</button>
 </section>
 <section class="busqueda">
-  <input id="f-q" type="search" placeholder="Buscar por título, alcance o dudas" aria-label="Buscar">
+  <input id="f-q" type="search" placeholder="Buscar por #ticket, título, alcance o dudas" aria-label="Buscar">
 </section>
 
 <main>
@@ -223,6 +280,10 @@ function pintarTema() {
 }
 try { const t = localStorage.getItem("alcance-tema"); if (t) document.documentElement.dataset.theme = t; } catch {}
 pintarTema();
+const dlgDescargar = document.getElementById("dlg-descargar");
+document.getElementById("descargar").addEventListener("click", () => dlgDescargar.showModal());
+// El archivo baja como adjunto: la página no cambia, solo se cierra el diálogo.
+dlgDescargar.querySelector("form").addEventListener("submit", (e) => { if (e.submitter?.formMethod !== "dialog") setTimeout(() => dlgDescargar.close()); });
 document.getElementById("tema").addEventListener("click", () => {
   const t = temaActual() === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = t;
@@ -272,8 +333,8 @@ async function recargarDetalle() {
 }
 async function cargar(fresco = false) {
   const f = fresco ? "?fresco=1" : "";
-  const [ab, rp, ver] = await Promise.all([api(`/api/items${f}`), api(`/api/repos${f}`), api("/api/version")]);
-  items = ab; repos = rp; huella = ver.huella; totalCerrados = ver.cerrados;
+  const [ab, rp, ver, jg] = await Promise.all([api(`/api/items${f}`), api(`/api/repos${f}`), api("/api/version"), api("/api/juego")]);
+  items = ab; repos = rp; huella = ver.huella; totalCerrados = ver.cerrados; jueguito = jg;
   await Promise.all([tipo === "historico" ? cargarHistorico() : null, recargarDetalle()]);
   $("#hora").textContent = `al día ${new Date().toLocaleTimeString("es-SV", { hour: "2-digit", minute: "2-digit" })}`;
   render();
@@ -281,6 +342,8 @@ async function cargar(fresco = false) {
 
 function filtrados() {
   const q = $("#f-q").value.trim().toLowerCase();
+  // "#41" o "41, 34 25": busca por número de ticket exacto.
+  const ids = /^#?\d+([\s,]+#?\d+)*$/.test(q) ? new Set(q.match(/\d+/g).map(Number)) : null;
   const { estado, sistema, prioridad, amb } = elegidos;
   // Ambiente calculado de git si hay commits; si no, el marcado a mano.
   const cumpleAmb = (a, f) => f === "ninguno" ? !Object.values(a).some(Boolean) : f === "qa-sin-prod" ? a.qa && !a.prod : !!a[f];
@@ -291,11 +354,38 @@ function filtrados() {
     (historico || tipo === "todos" || i.tipo === tipo) &&
     (!estado.size || estado.has(i.estado)) && (!sistema.size || sistema.has(i.sistema)) && (!prioridad.size || prioridad.has(i.prioridad)) && enAmb(i) &&
     (!repoSel || i.sistema === repoSel || i.commitRepos.includes(repoSel)) &&
-    (!q || [i.titulo, i.incluye, i.excluye, i.dudas].join(" ").toLowerCase().includes(q)));
+    (!q || ids?.has(i.id) || !ids && [i.titulo, i.incluye, i.excluye, i.dudas].join(" ").toLowerCase().includes(q)));
+}
+
+// ---------- Modo ranked ----------
+let jueguito = null;
+const rpFmt = (n) => n.toLocaleString("es-SV");
+const barra = (v, max, hecho) =>
+  `<div class="barra${hecho ? " hecho" : ""}" role="progressbar" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${v}"><i style="width:${max ? Math.min(100, Math.round((v / max) * 100)) : 100}%"></i></div>`;
+function renderJuego() {
+  const j = jueguito;
+  if (!j) return;
+  const sig = j.siguiente;
+  const total = j.semana.cerrados + j.semana.abiertos;
+  const pct = total ? Math.round((j.semana.cerrados / total) * 100) : 0;
+  $("#juego").innerHTML = `
+    <div class="jcard rank">
+      <span class="t">rango</span>
+      <div class="jfila"><span class="rp">${esc(j.rango)}</span><span class="t">${rpFmt(j.ganado)} RP</span></div>
+      ${barra(j.ganado - j.minRango, sig ? sig.min - j.minRango : 1, !sig)}
+      <span class="t">${sig ? `faltan ${rpFmt(sig.min - j.ganado)} RP para ${esc(sig.rango)}` : "rango máximo"}</span>
+    </div>
+    <div class="jcard">
+      <span class="t">esta semana</span>
+      <div class="jfila"><span class="pct">${pct}%</span><span class="t">${j.semana.cerrados} cerrados · ${j.semana.abiertos} por hacer</span></div>
+      ${barra(j.semana.cerrados, total)}
+      <span class="t">${j.semana.abiertos ? `te faltan ${j.semana.abiertos} tickets para dejar todo limpio` : "todo limpio, a jugar"}</span>
+    </div>`;
 }
 
 // ---------- Render ----------
 function render() {
+  renderJuego();
   const abiertos = items.filter((i) => i.estado !== "listo");
   const kpis = [
     [abiertos.length, "abiertos"],
