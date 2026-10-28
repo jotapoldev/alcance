@@ -5,14 +5,19 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   abiertos, historico, exportar, detalle, version, crear, actualizar, borrar, avance, asociar, desasociar,
-  commitsPendientes, guardarCommit, TIPOS, ESTADOS, PRIORIDADES, SEVERIDADES, AMBIENTES,
-} from "./db.mjs";
+  commitsPendientes, guardarCommit, TIPOS, ESTADOS, PRIORIDADES, SEVERIDADES, AMBIENTES, PROYECTO, PROYECTOS } from "./db.mjs";
 import { estadoRepos, commit, recientes, repos } from "./git.mjs";
 import { juego } from "./juego.mjs";
 import { xlsx } from "./xlsx.mjs";
 
 const root = dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.env.PORT ?? 3220);
+const PORT = Number(process.env.PORT ?? PROYECTOS[PROYECTO] ?? 3220);
+// Selector de proyecto en el encabezado: cada proyecto es otro servidor con su propia base.
+const selector = () => `<style>.proy{display:flex;gap:2px;padding:3px;border:1px solid var(--line,#ddd);border-radius:10px;margin-left:12px}
+.proy a{padding:4px 12px;border-radius:7px;font:600 12px ui-monospace,monospace;color:inherit;opacity:.7;text-decoration:none;text-transform:uppercase}
+.proy a[aria-current]{background:#3B2FD6;color:#fff;opacity:1}</style><script>document.querySelector("header .spacer")?.insertAdjacentHTML("beforebegin",
+'<nav class="proy" aria-label="Proyecto">${Object.entries(PROYECTOS).map(([n, p]) => `<a href="http://localhost:${p}/"${n === PROYECTO ? " aria-current=page" : ""}>${n}</a>`).join("")}</nav>');
+document.title="${PROYECTO} · "+document.title</script>`;
 
 // El ambiente de cada commit se guarda en la base: solo se vuelven a revisar los que todavía no
 // llegan a prod, en segundo plano, cada 2 min o con el botón "Actualizar" de la UI.
@@ -58,7 +63,8 @@ createServer(async (req, res) => {
     if (ESTATICOS[p]) {
       const [archivo, tipo] = ESTATICOS[p];
       res.writeHead(200, { "content-type": tipo });
-      return res.end(await readFile(join(root, "public", archivo)));
+      const cuerpo = await readFile(join(root, "public", archivo));
+      return res.end(archivo === "index.html" ? cuerpo.toString("utf8").replace("</body>", selector() + "</body>") : cuerpo);
     }
     if (p === "/api/meta") return json(res, 200, { TIPOS, ESTADOS, PRIORIDADES, SEVERIDADES, AMBIENTES, REPOS: repos().map((r) => r.nombre) });
     if (p === "/api/version") return json(res, 200, version());

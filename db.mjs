@@ -7,7 +7,12 @@ import { fileURLToPath } from "node:url";
 const root = dirname(fileURLToPath(import.meta.url));
 // .env.local (ignorado por git) puede mover la base fuera del código: ALCANCE_DB=/ruta/alcance.db
 try { process.loadEnvFile(join(root, ".env.local")); } catch {}
-const file = process.env.ALCANCE_DB ?? join(root, "data", "alcance.db");
+// Un proyecto por base: mspj usa la de siempre; otro (--proyecto capih o ALCANCE_PROYECTO) usa alcance-<proyecto>.db al lado.
+const i = process.argv.indexOf("--proyecto");
+export const PROYECTO = (i > 0 ? process.argv[i + 1] : process.env.ALCANCE_PROYECTO) || "mspj";
+export const PROYECTOS = { mspj: 3220, capih: 3222 };
+const base = process.env.ALCANCE_DB ?? join(root, "data", "alcance.db");
+const file = PROYECTO === "mspj" ? base : base.replace(/.db$/, `-${PROYECTO}.db`);
 mkdirSync(dirname(file), { recursive: true });
 
 export const db = new DatabaseSync(file);

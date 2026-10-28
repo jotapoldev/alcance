@@ -19,6 +19,7 @@ for (let i = 0; i < rest.length; i++) {
   if (rest[i].startsWith("--")) flags[rest[i].slice(2)] = rest[++i] ?? "";
   else pos.push(rest[i]);
 }
+delete flags.proyecto; // lo lee db.mjs para elegir la base
 if ("analisis-file" in flags) {
   flags.analisis = readFileSync(flags["analisis-file"], "utf8");
   delete flags["analisis-file"];
